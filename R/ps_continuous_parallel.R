@@ -43,23 +43,28 @@ ps_continuous_parallel <- function(
   type <- match.arg(type)
   alternative <- match.arg(alternative)
   r <- ratio
-  alpha <- ifelse(type == "superiority" & alternative == "two.sided", sig.level / 2, sig.level)
+
+  # Adjust alpha for test type and sidedness
+  alpha <- ifelse(type == "superiority" & alternative == "two.sided",
+                  sig.level / 2, sig.level)
   z_alpha <- qnorm(1 - alpha)
 
+  # --- internal helpers ---
   compute_effective_for_sample <- function(type, delta, margin) {
-    if(type == "superiority") return(list(delta_eff = abs(delta)))
-    if(type == "noninferiority") {
-      if(is.null(margin)) stop("Margin must be provided for noninferiority.")
-      return(list(delta_eff = delta + margin))
-    }
-    if(type == "equivalence") {
-      if(is.null(margin)) stop("Margin must be provided for equivalence.")
-      return(list(delta_eff = margin - abs(delta)))
+    if (type == "superiority") {
+      list(delta_eff = abs(delta))
+    } else if (type == "noninferiority") {
+      if (is.null(margin)) stop("Margin must be provided for noninferiority.")
+      list(delta_eff = delta + margin)
+    } else if (type == "equivalence") {
+      if (is.null(margin)) stop("Margin must be provided for equivalence.")
+      list(delta_eff = margin - abs(delta))
     }
   }
 
   compute_n_for_power <- function(power) {
-    if(is.null(power) || power <= 0 || power >= 1) stop("Power must be between 0 and 1.")
+    if (is.null(power) || power <= 0 || power >= 1)
+      stop("Power must be between 0 and 1.")
     z_beta <- qnorm(power)
     eff <- compute_effective_for_sample(type, delta, margin)
     n2 <- ceiling(((z_alpha + z_beta)^2 * sd^2 * (1 + 1/r)) / (eff$delta_eff^2))
@@ -68,32 +73,32 @@ ps_continuous_parallel <- function(
   }
 
   compute_power_for_n <- function(n1, n2) {
-    if(is.null(n1) || is.null(n2) || n1 <= 0 || n2 <= 0) stop("n1 and n2 must be positive.")
+    if (is.null(n1) || is.null(n2) || n1 <= 0 || n2 <= 0)
+      stop("n1 and n2 must be positive.")
     se <- sd * sqrt(1/n1 + 1/n2)
-    if(type == "superiority") {
+    if (type == "superiority") {
       z_beta <- abs(delta)/se - z_alpha
-      return(pnorm(z_beta))
-    }
-    if(type == "noninferiority") {
+      pnorm(z_beta)
+    } else if (type == "noninferiority") {
       z_beta <- (delta + margin)/se - z_alpha
-      return(pnorm(z_beta))
-    }
-    if(type == "equivalence") {
+      pnorm(z_beta)
+    } else if (type == "equivalence") {
       upper <- (margin - z_alpha * se - delta)/se
       lower <- (-margin + z_alpha * se - delta)/se
-      return(pnorm(upper) - pnorm(lower))
+      pnorm(upper) - pnorm(lower)
     }
   }
 
-  if(!is.null(power) & is.null(n1) & is.null(n2)) {
+  # --- main logic ---
+  if (!is.null(power) & is.null(n1) & is.null(n2)) {
     # Sample size determination
     out <- compute_n_for_power(power)
-  } else if(is.null(power) & !is.null(n1) & !is.null(n2)) {
+  } else if (is.null(power) & !is.null(n1) & !is.null(n2)) {
     # Power estimation
     pw <- compute_power_for_n(n1, n2)
     out <- list(power = pw, n1 = n1, n2 = n2, total = n1 + n2)
-  } else if(!is.null(power) & !is.null(n1) & !is.null(n2)) {
-    # Both provided
+  } else if (!is.null(power) & !is.null(n1) & !is.null(n2)) {
+    # Both provided: return both results
     nreq <- compute_n_for_power(power)
     pw <- compute_power_for_n(n1, n2)
     out <- c(nreq, list(achieved_power = pw))

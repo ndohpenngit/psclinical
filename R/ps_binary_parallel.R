@@ -51,52 +51,52 @@ ps_binary_parallel <- function(
 
   compute_effective_for_sample <- function(type, p1, p2, margin) {
     diff <- p1 - p2
-    if(type == "superiority") return(list(diff_eff = abs(diff)))
-    if(type == "noninferiority") {
-      if(is.null(margin)) stop("Margin must be provided for noninferiority.")
+    if (type == "superiority") return(list(diff_eff = abs(diff)))
+    if (type == "noninferiority") {
+      if (is.null(margin)) stop("Margin must be provided for noninferiority.")
       return(list(diff_eff = diff + margin))
     }
-    if(type == "equivalence") {
-      if(is.null(margin)) stop("Margin must be provided for equivalence.")
+    if (type == "equivalence") {
+      if (is.null(margin)) stop("Margin must be provided for equivalence.")
       return(list(diff_eff = margin - abs(diff)))
     }
   }
 
   compute_n_for_power <- function(power) {
-    if(is.null(power) || power <= 0 || power >= 1) stop("Power must be between 0 and 1.")
+    if (is.null(power) || power <= 0 || power >= 1) stop("Power must be between 0 and 1.")
     z_beta <- qnorm(power)
     eff <- compute_effective_for_sample(type, p1, p2, margin)
+    if (eff$diff_eff == 0) stop("Effective difference is zero; cannot compute sample size.")
     n2 <- ceiling(((z_alpha + z_beta)^2 * (var1 + var2 / r)) / (eff$diff_eff^2))
     n1 <- ceiling(r * n2)
     list(n1 = n1, n2 = n2, total = n1 + n2)
   }
 
   compute_power_for_n <- function(n1, n2) {
-    if(is.null(n1) || is.null(n2) || n1 <= 0 || n2 <= 0) stop("n1 and n2 must be positive.")
+    if (is.null(n1) || is.null(n2) || n1 <= 0 || n2 <= 0) stop("n1 and n2 must be positive.")
     se <- sqrt(var1 / n1 + var2 / n2)
     diff <- p1 - p2
-    if(type == "superiority") {
+    if (type == "superiority") {
       z_beta <- abs(diff) / se - z_alpha
       return(pnorm(z_beta))
     }
-    if(type == "noninferiority") {
+    if (type == "noninferiority") {
       z_beta <- (diff + margin) / se - z_alpha
       return(pnorm(z_beta))
     }
-    if(type == "equivalence") {
+    if (type == "equivalence") {
       upper <- (margin - z_alpha * se - diff) / se
       lower <- (-margin + z_alpha * se - diff) / se
-      return(pnorm(upper) - pnorm(lower))
+      return(max(0, min(1, pnorm(upper) - pnorm(lower))))  # bounded
     }
   }
 
-  # Determine mode of computation
-  if(!is.null(power) & is.null(n1) & is.null(n2)) {
+  if (!is.null(power) & is.null(n1) & is.null(n2)) {
     out <- compute_n_for_power(power)
-  } else if(is.null(power) & !is.null(n1) & !is.null(n2)) {
+  } else if (is.null(power) & !is.null(n1) & !is.null(n2)) {
     pw <- compute_power_for_n(n1, n2)
     out <- list(power = pw, n1 = n1, n2 = n2, total = n1 + n2)
-  } else if(!is.null(power) & !is.null(n1) & !is.null(n2)) {
+  } else if (!is.null(power) & !is.null(n1) & !is.null(n2)) {
     nreq <- compute_n_for_power(power)
     pw <- compute_power_for_n(n1, n2)
     out <- c(nreq, list(achieved_power = pw))
