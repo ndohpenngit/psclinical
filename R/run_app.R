@@ -9,7 +9,7 @@ run_app <- function() {
     install.packages(missing)
   }
 
-  app_dir <- system.file("inst/shiny/psclinical_app", package = "psclinical")
+  app_dir <- system.file("shiny/psclinical_app", package = "psclinical")
   if (app_dir == "") stop("App not found. Please reinstall the 'psclinical' package.")
   shiny::runApp(app_dir, display.mode = "normal")
 }
