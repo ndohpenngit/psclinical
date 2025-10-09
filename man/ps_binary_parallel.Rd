@@ -43,5 +43,17 @@ A list of class \code{ssize_result} with computed sample sizes, total, and/or ac
 Computes sample size or power for a two-sample binary outcome trial.
 }
 \examples{
-ps_binary_parallel(p1=0.3, p2=0.2, power=0.8)
+# Sample size determination (superiority)
+ps_binary_parallel(p1 = 0.3, p2 = 0.2, power = 0.8)
+
+# Power estimation for given sample sizes
+ps_binary_parallel(p1 = 0.3, p2 = 0.2, n1 = 50, n2 = 50)
+
+# Noninferiority design: sample size determination
+ps_binary_parallel(p1 = 0.3, p2 = 0.25, type = "noninferiority",
+                   margin = 0.05, power = 0.9)
+
+# Equivalence design: power estimation
+ps_binary_parallel(p1 = 0.3, p2 = 0.25, type = "equivalence",
+                   margin = 0.05, n1 = 60, n2 = 60)
 }

@@ -43,6 +43,17 @@ A list of class \code{ssize_result} with computed sample sizes, total, and/or ac
 Computes sample size or power for a two-sample continuous outcome trial.
 }
 \examples{
-ps_continuous_parallel(delta=2, sd=5, power=0.8)
-ps_continuous_parallel(delta=2, sd=5, n1=50, n2=50)
+# Sample size determination for superiority design
+ps_continuous_parallel(delta = 2, sd = 5, power = 0.8)
+
+# Power estimation for given sample sizes
+ps_continuous_parallel(delta = 2, sd = 5, n1 = 50, n2 = 50)
+
+# Noninferiority design: sample size determination
+ps_continuous_parallel(delta = 1, sd = 2, type = "noninferiority",
+                       margin = 0.5, power = 0.9)
+
+# Equivalence design: power estimation
+ps_continuous_parallel(delta = 1, sd = 2, type = "equivalence",
+                       margin = 0.5, n1 = 60, n2 = 60)
 }

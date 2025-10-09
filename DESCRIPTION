@@ -14,7 +14,10 @@ Imports:
     shiny,
     shinydashboard,
     shinythemes,
+    shinyjs,
+    shinycssloaders,
     ggplot2,
+    plotly,
     DT,
     survival
 Suggests:
