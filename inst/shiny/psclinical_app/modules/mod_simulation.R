@@ -1,24 +1,15 @@
-# ===============================================================
-# Module: mod_simulation.R
-# Purpose: UI + Server for empirical power simulation
-# Depends on: sim_empirical_power() from package psclinical
-# ===============================================================
-
-#' Simulation Module UI
-#' @param id Module ID
-#' @noRd
 mod_simulation_ui <- function(id) {
   ns <- NS(id)
   tagList(
     h3("Empirical Power Simulation"),
     fluidRow(
-      # Input Box
       box(title = "Inputs", status = "primary", solidHeader = TRUE, width = 6,
           selectInput(ns("design"), "Design Type",
                       choices = c("Continuous"="continuous",
                                   "Binary"="binary",
                                   "Survival"="survival")),
-          numericInput(ns("nsim"), "Number of Simulations", value = 1000, min = 1, step = 1),
+          numericInput(ns("nrep"), "Number of Repetitions (outer loop)", value = 100, min = 1, step = 1),
+          numericInput(ns("nsim"), "Simulations per Rep (inner loop)", value = 1000, min = 1, step = 1),
           numericInput(ns("n"), "Sample Size per Group", value = 50, min = 1, step = 1),
           numericInput(ns("alpha"), "Significance Level (alpha)", value = 0.05, min = 0.001, max = 0.5, step = 0.01),
           selectInput(ns("alternative"), "Alternative Hypothesis", choices=c("two.sided","one.sided")),
@@ -49,84 +40,99 @@ mod_simulation_ui <- function(id) {
           actionButton(ns("go"), "Compute Empirical Power", class="btn-primary")
       ),
 
-      # Results Box
-      box(title = "Results", status = "success", solidHeader = TRUE, width = 6,
+      # Results
+      box(title = "Results", status = NULL, solidHeader = TRUE, width = 6,
           verbatimTextOutput(ns("result")),
-          plotOutput(ns("simPlot"), height="300px")
+          hr(),
+          plotly::plotlyOutput(ns("simPlot"), height="300px") %>% withSpinner(type = 8)
       )
     )
   )
 }
 
-
-#' Simulation Module Server
-#' @param id Module ID
-#' @noRd
 mod_simulation_server <- function(id) {
   moduleServer(id, function(input, output, session) {
 
-    # Reactive computation triggered by button
     sim_result <- eventReactive(input$go, {
-      design <- input$design
-
-      if (design == "continuous") {
-        sim_empirical_power(
-          design = "continuous",
-          nsim = input$nsim,
-          n = input$n,
-          delta = input$delta,
-          sd = input$sd,
-          alpha = input$alpha,
-          alternative = input$alternative
-        )
-      } else if (design == "binary") {
-        sim_empirical_power(
-          design = "binary",
-          nsim = input$nsim,
-          n = input$n,
-          p1 = input$p1,
-          p2 = input$p2,
-          alpha = input$alpha,
-          alternative = input$alternative
-        )
-      } else { # survival
-        sim_empirical_power(
-          design = "survival",
-          nsim = input$nsim,
-          n = input$n,
-          HR = input$HR,
-          lambdaC = input$lambdaC,
-          accrual = input$accrual,
-          followup = input$followup,
-          dropout = input$dropout,
-          alpha = input$alpha,
-          alternative = input$alternative
-        )
-      }
+      sim_empirical_power(
+        design = input$design,
+        nsim = input$nsim,
+        n = input$n,
+        delta = input$delta,
+        sd = input$sd,
+        p1 = input$p1,
+        p2 = input$p2,
+        HR = input$HR,
+        lambdaC = input$lambdaC,
+        accrual = input$accrual,
+        followup = input$followup,
+        dropout = input$dropout,
+        alpha = input$alpha,
+        alternative = input$alternative,
+        nrep = input$nrep,
+        plot = FALSE
+      )
     })
 
-    # Render textual result
+    # --- Summary Output ---
     output$result <- renderPrint({
       req(sim_result())
-      cat("Empirical Power (proportion of significant tests):\n")
-      cat(round(sim_result(),3), "\n")
-    })
+      res <- sim_result()
+      powers <- res$rep_powers
+      mean_power <- res$mean_power
+      sd_power <- sd(powers)
+      nrep <- length(powers)
 
-    # Histogram of simulated results for continuous/binary
-    output$simPlot <- renderPlot({
-      req(input$go)
-      design <- input$design
-      if (design %in% c("continuous","binary")) {
-        nrep <- 100
-        sims <- replicate(nrep, {
-          sim_empirical_power(design=design, nsim=input$nsim, n=input$n,
-                              delta=input$delta, sd=input$sd,
-                              p1=input$p1, p2=input$p2,
-                              alpha=input$alpha, alternative=input$alternative)
-        })
-        hist(sims, main="Distribution of Empirical Power", xlab="Power", col="skyblue", border="white")
+      if (nrep > 1) {
+        se_power <- sd_power / sqrt(nrep)
+        ci_lower <- mean_power - 1.96 * se_power
+        ci_upper <- mean_power + 1.96 * se_power
+      } else {
+        se_power <- NA
+        ci_lower <- NA
+        ci_upper <- NA
       }
+
+      cat("Summary of Empirical Power Estimates:\n")
+      print(summary(powers))
+      cat("\nMean Empirical Power:", round(mean_power, 3))
+      cat("\nMonte Carlo SE:", round(se_power, 4))
+      cat("\n95% Monte Carlo CI: [", round(ci_lower, 3), ", ", round(ci_upper, 3), "]\n")
     })
 
+    # --- Plot ---
+    output$simPlot <- renderPlotly({
+      req(sim_result())
+      res <- sim_result()
+      powers <- res$rep_powers
+      df <- data.frame(power = powers)
+
+      if (length(unique(powers)) > 1) {
+        p <- ggplot(df, aes(x = power)) +
+          geom_histogram(aes(y = after_stat(density)), bins = 20,
+                         fill = "skyblue", color = "white") +
+          geom_density(color = "lightblue", linewidth = 1) +
+          geom_vline(aes(xintercept = mean(power)),
+                     color = "darkred", linetype = "dashed", linewidth = 1) +
+          annotate("text", x = mean(powers),
+                   y = max(density(powers)$y) * 0.9,
+                   label = paste0("Mean = ", round(mean(powers), 3)),
+                   color = "darkred", hjust = -0.1) +
+          labs(title = "Distribution of Empirical Power Estimates",
+               x = "Empirical Power", y = "Density") +
+          theme_minimal()
+      } else {
+        # Fallback: single-value histogram
+        p <- ggplot(df, aes(x = power)) +
+          geom_histogram(bins = 5, fill = "skyblue", color = "white") +
+          geom_vline(aes(xintercept = mean(power)),
+                     color = "darkred", linetype = "dashed", linewidth = 1) +
+          labs(title = "Empirical Power (Single Value)",
+               x = "Empirical Power", y = "Count") +
+          theme_minimal()
+      }
+
+      ggplotly(p)
+    })
   })
 }

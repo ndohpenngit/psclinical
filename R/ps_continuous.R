@@ -16,8 +16,19 @@
 #' @export
 #'
 #' @examples
-#' ps_continuous_parallel(delta=2, sd=5, power=0.8)
-#' ps_continuous_parallel(delta=2, sd=5, n1=50, n2=50)
+#' # Sample size determination for superiority design
+#' ps_continuous_parallel(delta = 2, sd = 5, power = 0.8)
+#'
+#' # Power estimation for given sample sizes
+#' ps_continuous_parallel(delta = 2, sd = 5, n1 = 50, n2 = 50)
+#'
+#' # Noninferiority design: sample size determination
+#' ps_continuous_parallel(delta = 1, sd = 2, type = "noninferiority",
+#'                        margin = 0.5, power = 0.9)
+#'
+#' # Equivalence design: power estimation
+#' ps_continuous_parallel(delta = 1, sd = 2, type = "equivalence",
+#'                        margin = 0.5, n1 = 60, n2 = 60)
 ps_continuous_parallel <- function(
     delta,
     sd,
@@ -32,37 +43,64 @@ ps_continuous_parallel <- function(
   type <- match.arg(type)
   alternative <- match.arg(alternative)
   r <- ratio
-  alpha <- ifelse(type=="superiority" & alternative=="two.sided", sig.level/2, sig.level)
-  z_alpha <- qnorm(1-alpha)
+  alpha <- ifelse(type == "superiority" & alternative == "two.sided", sig.level / 2, sig.level)
+  z_alpha <- qnorm(1 - alpha)
 
   compute_effective_for_sample <- function(type, delta, margin) {
-    if(type=="superiority"){return(list(delta_eff=abs(delta)))}
-    if(type=="noninferiority"){return(list(delta_eff=delta+margin))}
-    if(type=="equivalence"){return(list(delta_eff=margin-abs(delta)))}
+    if(type == "superiority") return(list(delta_eff = abs(delta)))
+    if(type == "noninferiority") {
+      if(is.null(margin)) stop("Margin must be provided for noninferiority.")
+      return(list(delta_eff = delta + margin))
+    }
+    if(type == "equivalence") {
+      if(is.null(margin)) stop("Margin must be provided for equivalence.")
+      return(list(delta_eff = margin - abs(delta)))
+    }
   }
 
-  compute_n_for_power <- function(power){
+  compute_n_for_power <- function(power) {
+    if(is.null(power) || power <= 0 || power >= 1) stop("Power must be between 0 and 1.")
     z_beta <- qnorm(power)
     eff <- compute_effective_for_sample(type, delta, margin)
-    n2 <- ceiling(((z_alpha+z_beta)^2*sd^2*(1+1/r))/(eff$delta_eff^2))
-    n1 <- ceiling(r*n2)
-    list(n1=n1, n2=n2, total=n1+n2)
+    n2 <- ceiling(((z_alpha + z_beta)^2 * sd^2 * (1 + 1/r)) / (eff$delta_eff^2))
+    n1 <- ceiling(r * n2)
+    list(n1 = n1, n2 = n2, total = n1 + n2)
   }
 
-  compute_power_for_n <- function(n1,n2){
-    se <- sd*sqrt(1/n1+1/n2)
-    if(type=="superiority"){z_beta <- abs(delta)/se - z_alpha; return(pnorm(z_beta))}
-    if(type=="noninferiority"){z_beta <- (delta+margin)/se - z_alpha; return(pnorm(z_beta))}
-    if(type=="equivalence"){upper <- (margin-z_alpha*se-delta)/se; lower <- (-margin+z_alpha*se-delta)/se; return(pnorm(upper)-pnorm(lower))}
+  compute_power_for_n <- function(n1, n2) {
+    if(is.null(n1) || is.null(n2) || n1 <= 0 || n2 <= 0) stop("n1 and n2 must be positive.")
+    se <- sd * sqrt(1/n1 + 1/n2)
+    if(type == "superiority") {
+      z_beta <- abs(delta)/se - z_alpha
+      return(pnorm(z_beta))
+    }
+    if(type == "noninferiority") {
+      z_beta <- (delta + margin)/se - z_alpha
+      return(pnorm(z_beta))
+    }
+    if(type == "equivalence") {
+      upper <- (margin - z_alpha * se - delta)/se
+      lower <- (-margin + z_alpha * se - delta)/se
+      return(pnorm(upper) - pnorm(lower))
+    }
   }
 
-  if(!is.null(power)&is.null(n1)&is.null(n2)){out <- compute_n_for_power(power)}
-  else if(is.null(power)&!is.null(n1)&!is.null(n2)){out <- list(power=compute_power_for_n(n1,n2), n1=n1, n2=n2, total=n1+n2)}
-  else if(!is.null(power)&!is.null(n1)&!is.null(n2)){
+  if(!is.null(power) & is.null(n1) & is.null(n2)) {
+    # Sample size determination
+    out <- compute_n_for_power(power)
+  } else if(is.null(power) & !is.null(n1) & !is.null(n2)) {
+    # Power estimation
+    pw <- compute_power_for_n(n1, n2)
+    out <- list(power = pw, n1 = n1, n2 = n2, total = n1 + n2)
+  } else if(!is.null(power) & !is.null(n1) & !is.null(n2)) {
+    # Both provided
     nreq <- compute_n_for_power(power)
-    pw <- compute_power_for_n(n1,n2)
-    out <- c(nreq, list(achieved_power=pw))
-  } else stop("Provide power OR n1/n2 or both")
+    pw <- compute_power_for_n(n1, n2)
+    out <- c(nreq, list(achieved_power = pw))
+  } else {
+    stop("Provide either power OR n1/n2, or both for full computation.")
+  }
+
   class(out) <- "ssize_result"
-  out
+  return(out)
 }
