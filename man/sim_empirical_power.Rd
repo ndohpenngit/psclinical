@@ -2,7 +2,7 @@
 % Please edit documentation in R/sim_empirical_power.R
 \name{sim_empirical_power}
 \alias{sim_empirical_power}
-\title{Simulate empirical power}
+\title{Simulate empirical power for continuous, binary, or survival outcomes}
 \usage{
 sim_empirical_power(
   design = c("continuous", "binary", "survival"),
@@ -10,8 +10,11 @@ sim_empirical_power(
   n = 50,
   delta = NULL,
   sd = NULL,
+  sd_diff = NULL,
   p1 = NULL,
   p2 = NULL,
+  paired = FALSE,
+  one_sample = FALSE,
   HR = NULL,
   lambdaC = NULL,
   accrual = NULL,
@@ -26,93 +29,79 @@ sim_empirical_power(
 )
 }
 \arguments{
-\item{design}{Character. One of "continuous", "binary", or "survival".}
+\item{design}{Character. One of "continuous", "binary", "survival"}
 
-\item{nsim}{Integer. Number of simulated trials per replication (default 1000).}
+\item{nsim}{Integer. Number of simulated trials per replication
+(default 1000)}
 
-\item{n}{Integer. Sample size per arm (default 50).}
+\item{n}{Numeric. Sample size per arm or per group (default 50)}
 
-\item{delta}{Numeric. Mean difference (required for continuous outcomes).}
+\item{delta}{Numeric. Mean difference (required for continuous outcomes)}
 
-\item{sd}{Numeric. Standard deviation (required for continuous outcomes).}
+\item{sd}{Numeric. Standard deviation (required for continuous outcomes except paired)}
 
-\item{p1, p2}{Numerics. Event probabilities for control and treatment (required for binary outcomes).}
+\item{sd_diff}{Numeric. Standard deviation of within-subject differences (for paired continuous design)}
 
-\item{HR}{Numeric. Hazard ratio (required for survival outcomes).}
+\item{p1, p2}{Numeric. Event probabilities for control and treatment
+(required for binary outcomes)}
 
-\item{lambdaC}{Numeric. Baseline hazard for control group (required for survival outcomes).}
+\item{paired}{Logical. If TRUE, simulate paired design (default FALSE)}
 
-\item{accrual}{Numeric. Accrual period (currently not used, placeholder for extensions).}
+\item{one_sample}{Logical. If TRUE, simulate one-sample test (default FALSE)}
 
-\item{followup}{Numeric. Follow-up period (currently not used, placeholder for extensions).}
+\item{HR}{Numeric. Hazard ratio (required for survival outcomes)}
 
-\item{dropout}{Numeric. Dropout rate between 0 and 1 (default 0, used for survival outcomes).}
+\item{lambdaC}{Numeric. Baseline hazard for control group
+(required for survival outcomes)}
 
-\item{alpha}{Numeric. Significance level (default 0.05).}
+\item{accrual, followup}{Numeric. Placeholder for time-to-event parameters}
 
-\item{alternative}{Character. "two.sided" or "one.sided" (default "two.sided").}
+\item{dropout}{Numeric. Dropout rate between 0 and 1 (default 0)}
 
-\item{nrep}{Integer. Number of replicated runs for distribution of powers (default 100).}
+\item{alpha}{Numeric. Significance level (default 0.05)}
 
-\item{plot}{Logical. If TRUE, plots histogram and density of replicated powers (default TRUE).}
+\item{alternative}{Character. "two.sided" or "one.sided" (default "two.sided")}
 
-\item{seed}{Integer. Optional random seed for reproducibility.}
+\item{nrep}{Integer. Number of replicated runs (default 100)}
 
-\item{ncores}{Integer. Number of CPU cores for parallel execution
-(default: max cores - 1). That is, all but one core detected on the system).}
+\item{plot}{Logical. If TRUE, plot distribution of simulated powers (default TRUE)}
+
+\item{seed}{Integer. Optional random seed}
+
+\item{ncores}{Integer. Number of CPU cores for parallel execution}
 }
 \value{
-A list with:
-\describe{
-\item{mean_power}{Mean empirical power across replications.}
-\item{rep_powers}{Vector of empirical power estimates (length = nrep).}
-}
+List with:
+\item{mean_power}{Mean empirical power across replications}
+\item{rep_powers}{Vector of empirical power estimates (length = nrep)}
+\item{plot_powers}{Plot object if plot=TRUE}
 }
 \description{
-Simulates continuous, binary, or survival outcomes to estimate empirical power.
-Optionally replicates the simulation multiple times and returns both the
-vector of empirical power estimates and their mean. Supports multi-core
-parallelization for faster performance.
-}
-\details{
-The function supports three study designs:
-\itemize{
-\item \strong{Continuous:} Simulated via two-sample t-tests.
-\item \strong{Binary:} Simulated via two-sample tests for proportions.
-\item \strong{Survival:} Simulated via Cox proportional hazards models.
-}
-
-Parallelization is implemented with \code{parallel::parLapply}, which can
-significantly reduce computation time when \code{nrep} is large.
+Supports two-arm parallel, one-sample, and paired designs.
 }
 \examples{
-# --- Continuous outcome example ---
-res1 <- sim_empirical_power(
-  design = "continuous",
-  nsim = 1000, n = 50,
-  delta = 1, sd = 2,
-  nrep = 50, plot = TRUE
-)
+# One-sample continuous
+res1 <- sim_empirical_power(design="continuous", n=50, delta=2, sd=5,
+                            one_sample=TRUE, nrep=50)
 res1$mean_power
-hist(res1$rep_powers)
 
-# --- Binary outcome example ---
-res2 <- sim_empirical_power(
-  design = "binary",
-  nsim = 1000, n = 60,
-  p1 = 0.3, p2 = 0.5,
-  nrep = 50, plot = TRUE
-)
+# Paired binary
+res2 <- sim_empirical_power(design="binary", n=60, p1=0.3, p2=0.5,
+                            paired=TRUE, nrep=50)
 res2$mean_power
 
-# --- Survival outcome example ---
-res3 <- sim_empirical_power(
-  design = "survival",
-  nsim = 500, n = 40,
-  HR = 0.7, lambdaC = 0.1,
-  dropout = 0.05,
-  nrep = 20, plot = TRUE
-)
+# Two-arm parallel continuous
+res3 <- sim_empirical_power(design="continuous", n=50, delta=2, sd=5,
+                            nrep=50)  # default: parallel
 res3$mean_power
 
+# Two-arm parallel binary
+res4 <- sim_empirical_power(design="binary", n=60, p1=0.3, p2=0.5,
+                            nrep=50)
+res4$mean_power
+
+# Two-arm survival
+res5 <- sim_empirical_power(design="survival", n=40, HR=0.7, lambdaC=0.1,
+                            dropout=0.05, nrep=20)
+res5$mean_power
 }
