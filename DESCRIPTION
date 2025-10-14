@@ -1,6 +1,6 @@
 Package: psclinical
 Title: PSClinical: Sample Size and Power Computations for Clinical Trials
-Version: 0.0.1
+Version: 0.1
 Authors@R: 
     person("Ndoh", "Penn", email = "ndohpenn9@gmail.com", role = c("aut", "cre"))
 Description: Functions for sample size and power for continuous, binary,
@@ -14,11 +14,17 @@ Imports:
     shiny,
     shinydashboard,
     shinythemes,
+    shinyjs,
+    shinycssloaders,
     ggplot2,
+    plotly,
     DT,
     survival
 Suggests:
     testthat,
     usethis,
     devtools,
-    roxygen2
+    roxygen2,
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr

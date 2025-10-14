@@ -17,19 +17,19 @@ ps_survival(
 )
 }
 \arguments{
-\item{hr}{Hazard ratio (treatment vs control).}
+\item{hr}{Hazard ratio (treatment vs control). Must be > 0.}
 
 \item{power}{Desired power (0–1). Provide either \code{power} or \code{events}.}
 
 \item{sig.level}{Significance level (default 0.05, two-sided).}
 
-\item{accrual}{Accrual duration in years.}
+\item{accrual}{Accrual duration in years. Must be > 0.}
 
-\item{followup}{Additional follow-up duration in years.}
+\item{followup}{Additional follow-up duration in years. Must be > 0.}
 
 \item{dropout}{Annual dropout rate (0–1). Default 0.}
 
-\item{allocation}{Allocation proportion to treatment (default 0.5).}
+\item{allocation}{Allocation proportion to treatment (0–1). Default 0.5.}
 
 \item{events}{Optional: fixed number of events to compute achieved power.}
 
@@ -43,5 +43,12 @@ Computes required number of events or total sample size for survival trials,
 accounting for accrual, follow-up, and dropout rates.
 }
 \examples{
+# Sample size calculation
 ps_survival(hr=0.7, power=0.8, accrual=2, followup=1)
+
+# Power calculation for fixed events
+ps_survival(hr=0.7, events=150, accrual=2, followup=1)
+
+# Both sample size and power
+ps_survival(hr=0.7, power=0.8, events=150, accrual=2, followup=1)
 }
